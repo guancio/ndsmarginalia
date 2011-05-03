@@ -32,6 +32,16 @@ public:
 		 src.y - scroll_y
 		 );
   }
+  Point convertScreenToBuffer(Point src) {
+    return Point(
+		 src.x + scroll_x,
+		 src.y + scroll_y
+		 );
+  }
+  Point convertScreenToImage(Point src) {
+    Point tmp = convertScreenToBuffer(src);
+    return convertBufferToImage(tmp);
+  }
 };
 
 
@@ -311,17 +321,16 @@ void updateCenter(AppState & state) {
   Point bottomLeft = state.convertBufferToScreen(Point(0,0));
   Point topRight = state.convertBufferToScreen(Point(MY_BG_W,MY_BG_H));
 
-  int tmp_cx = state.center_x-MY_BG_W/2+state.scroll_x+SCREEN_WIDTH/2;
-  int tmp_cy = state.center_y-MY_BG_H/2+state.scroll_y+SCREEN_HEIGHT/2;
 
   if (bottomLeft.x < 0 || bottomLeft.y < 0 || topRight.x < SCREEN_WIDTH || topRight.y < SCREEN_HEIGHT) {
-    state.scroll_x = MY_BG_W/2-SCREEN_WIDTH/2;
-    state.scroll_y = MY_BG_H/2-SCREEN_HEIGHT/2;
-    state.center_x = tmp_cx;
-    state.center_y = tmp_cy;
-    bgHide(3);
-    fillDisplay(RGB15(0,0,0) | BIT(15), state.lastPage, state);
-    drawPage(state.currentPage, RGB15(31,0,0) | BIT(15));
+      Point newCenter = state.convertScreenToImage(Point(SCREEN_WIDTH/2, SCREEN_HEIGHT/2));
+      state.scroll_x = MY_BG_W/2-SCREEN_WIDTH/2;
+      state.scroll_y = MY_BG_H/2-SCREEN_HEIGHT/2;
+      state.center_x = newCenter.x;
+      state.center_y = newCenter.y;
+      bgHide(3);
+      fillDisplay(RGB15(0,0,0) | BIT(15), state.lastPage, state);
+      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15));
   }
   bgSetScroll(3, state.scroll_x, state.scroll_y);
   bgUpdate();
