@@ -24,6 +24,14 @@ public:
 		 (src.y+center_y-MY_BG_H/2)
 		 );
   }
+  Point convertBufferToScreen(Point src) {
+    // 0 -> -scroll_x
+    // MY_BG_W -> MY_BG_W - scroll_x
+    return Point(
+		 src.x - scroll_x,
+		 src.y - scroll_y
+		 );
+  }
 };
 
 
@@ -300,13 +308,13 @@ int saveFile(const char * fileName, Notebook notebook) {
 }
 
 void updateCenter(AppState & state) {
-  int x_remain = MY_BG_W-SCREEN_WIDTH-state.scroll_x;
+  Point bottomLeft = state.convertBufferToScreen(Point(0,0));
+  Point topRight = state.convertBufferToScreen(Point(MY_BG_W,MY_BG_H));
+
   int tmp_cx = state.center_x-MY_BG_W/2+state.scroll_x+SCREEN_WIDTH/2;
-  int y_remain = MY_BG_H-SCREEN_HEIGHT-state.scroll_y;
   int tmp_cy = state.center_y-MY_BG_H/2+state.scroll_y+SCREEN_HEIGHT/2;
-  printf("Scroll X %d Remain %d Center %d\n", state.scroll_x, x_remain, tmp_cx);
-  printf("Scroll Y %d Remain %d Center %d\n", state.scroll_y, y_remain, tmp_cy);
-  if (x_remain < 0 || y_remain < 0 || state.scroll_x<0 || state.scroll_y<0) {
+
+  if (bottomLeft.x < 0 || bottomLeft.y < 0 || topRight.x < SCREEN_WIDTH || topRight.y < SCREEN_HEIGHT) {
     state.scroll_x = MY_BG_W/2-SCREEN_WIDTH/2;
     state.scroll_y = MY_BG_H/2-SCREEN_HEIGHT/2;
     state.center_x = tmp_cx;
