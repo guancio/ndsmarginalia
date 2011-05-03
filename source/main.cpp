@@ -17,6 +17,13 @@ public:
   int scroll_x;
   int scroll_y;
   Page* currentPage;
+
+  Point convertBufferToImage(Point src) {
+    return Point(
+		 (src.x+center_y-MY_BG_H/2),
+		 (src.y+center_y-MY_BG_H/2)
+		 );
+  }
 };
 
 
@@ -89,24 +96,26 @@ void fillDisplay(unsigned short color, unsigned int page, AppState & state) {
 
   // dmaCopy(image.palette, BG_PALETTE, sizeof(image.palette));
 
-  int imgO = 0;
   for (int y=0 ; y < MY_BG_H; y++) {
-    int yImage = (y+state.center_y-MY_BG_H/2);
     offset = y * MY_BG_W / 2;
-    imgO = yImage * state.lastImage.width/2;
     for (int x=0; x<MY_BG_W; x+=2) {
-      int xImage = (x+state.center_x-MY_BG_W/2);
-
       int offset2 = offset + x/2;
-      int imgO2 = imgO + xImage/2;
+
+      Point imgPoint = state.convertBufferToImage(Point(x,y));
+
+      if (imgPoint.y < 0 || imgPoint.y >= state.lastImage.height) {
+	bgGetGfxPtr(3)[offset2] = 0;
+	continue;
+      }
+      if (imgPoint.x < 0 || imgPoint.x >= state.lastImage.width) {
+	bgGetGfxPtr(3)[offset2] = 0;
+	continue;
+      }
+
       //BG_GFX[offset] = RGB15(31,0,0) | BIT(15);
       // BG_GFX[offset] = image.image.data16[imgO];
-      if (yImage < 0 || yImage >= state.lastImage.height)
-	bgGetGfxPtr(3)[offset2] = 0;
-      else if (xImage < 0 || xImage >= state.lastImage.width)
-	bgGetGfxPtr(3)[offset2] = 0;
-      else
-	bgGetGfxPtr(3)[offset2] = state.lastImage.image.data16[imgO2];
+      int imgO = imgPoint.y * state.lastImage.width/2 + imgPoint.x/2;
+      bgGetGfxPtr(3)[offset2] = state.lastImage.image.data16[imgO];
       // bgGetGfxPtr(3)[offset2] = 0x0101;
     }
   }
