@@ -20,8 +20,14 @@ public:
 
   Point convertBufferToImage(Point src) {
     return Point(
-		 (src.x+center_y-MY_BG_H/2),
+		 (src.x+center_x-MY_BG_W/2),
 		 (src.y+center_y-MY_BG_H/2)
+		 );
+  }
+  Point convertImageToBuffer(Point src) {
+    return Point(
+		 (src.x-center_x+MY_BG_W/2),
+		 (src.y-center_y+MY_BG_H/2)
 		 );
   }
   Point convertBufferToScreen(Point src) {
@@ -139,13 +145,20 @@ void fillDisplay(unsigned short color, unsigned int page, AppState & state) {
   }
   // dmaCopy(image.image.data8, bgGetGfxPtr(3), image.width*image.height);
 }
-void drawPage(Page * page, unsigned short color) {
+void drawPage(Page * page, unsigned short color, AppState & state) {
   for (unsigned int iSeg = 0; iSeg < page->segments.size(); iSeg++) {
     Segment segment = page->segments[iSeg];
     for (unsigned int iPoint=0; iPoint<segment.points.size()-1; iPoint++) {
-      Point p1 = segment.points[iPoint];
-      Point p2 = segment.points[iPoint+1];
-      drawLine(p1.x, p1.y, p2.x, p2.y, color);
+      Point p1img = segment.points[iPoint];
+      Point p2img = segment.points[iPoint+1];
+      Point p1buff = state.convertImageToBuffer(p1img);
+      Point p2buff = state.convertImageToBuffer(p2img);
+
+      printf("--------------\n");
+      printf("%d %d\n", p1buff.x, p1buff.y);
+      printf("%d %d\n", p2buff.x, p2buff.y);
+
+      drawLine(p1buff.x, p1buff.y, p2buff.x, p2buff.y, color);
     }
   }
 }
@@ -183,12 +196,14 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned short color)
        {                           
           // VRAM_A[offset] = color;  
 	 // BG_GFX[offset] = color; 
-	 int offset2 = offset/2;
-	 if (offset%2 == 0) {
-	   BG_GFX[offset2] = (BG_GFX[offset2] & 0xff00) | color;
-	 }
-	 else {
-	   BG_GFX[offset2] = (BG_GFX[offset2] & 0x00ff) | (color<<8);
+	 if (offset >= 0 && offset < MY_BG_W*MY_BG_H) {
+	   int offset2 = offset/2;
+	   if (offset%2 == 0) {
+	     BG_GFX[offset2] = (BG_GFX[offset2] & 0xff00) | color;
+	   }
+	   else {
+	     BG_GFX[offset2] = (BG_GFX[offset2] & 0x00ff) | (color<<8);
+	   }
 	 }
 
           offset += xStep;           
@@ -209,12 +224,14 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned short color)
        {  
           // VRAM_A[offset] = color;  
 	 // BG_GFX[offset] = color; 
-	 int offset2 = offset/2;
-	 if (offset%2 == 0) {
-	   BG_GFX[offset2] = (BG_GFX[offset2] & 0xff00) | color;
-	 }
-	 else {
-	   BG_GFX[offset2] = (BG_GFX[offset2] & 0x00ff) | (color<<8);
+	 if (offset >= 0 && offset < MY_BG_W*MY_BG_H) {
+	   int offset2 = offset/2;
+	   if (offset%2 == 0) {
+	     BG_GFX[offset2] = (BG_GFX[offset2] & 0xff00) | color;
+	   }
+	   else {
+	     BG_GFX[offset2] = (BG_GFX[offset2] & 0x00ff) | (color<<8);
+	   }
 	 }
  
           offset += yStep;           
@@ -321,16 +338,23 @@ void updateCenter(AppState & state) {
   Point bottomLeft = state.convertBufferToScreen(Point(0,0));
   Point topRight = state.convertBufferToScreen(Point(MY_BG_W,MY_BG_H));
 
+  Point newCenter = state.convertScreenToImage(Point(SCREEN_WIDTH/2, SCREEN_HEIGHT/2));
+  printf("--------------\n");
+  printf("%d %d\n", bottomLeft.x, bottomLeft.y);
+  printf("%d %d\n", topRight.x, topRight.y);
+  printf("%d %d\n", newCenter.x, newCenter.y);
 
-  if (bottomLeft.x < 0 || bottomLeft.y < 0 || topRight.x < SCREEN_WIDTH || topRight.y < SCREEN_HEIGHT) {
-      Point newCenter = state.convertScreenToImage(Point(SCREEN_WIDTH/2, SCREEN_HEIGHT/2));
+  if (bottomLeft.x > 0 || bottomLeft.y > 0 || topRight.x < SCREEN_WIDTH || topRight.y < SCREEN_HEIGHT) {
+    //Point newCenter = state.convertScreenToImage(Point(SCREEN_WIDTH/2, SCREEN_HEIGHT/2));
       state.scroll_x = MY_BG_W/2-SCREEN_WIDTH/2;
       state.scroll_y = MY_BG_H/2-SCREEN_HEIGHT/2;
       state.center_x = newCenter.x;
       state.center_y = newCenter.y;
+
+      printf("%d %d\n", state.center_x, state.center_y);
       bgHide(3);
       fillDisplay(RGB15(0,0,0) | BIT(15), state.lastPage, state);
-      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15));
+      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15), state);
   }
   bgSetScroll(3, state.scroll_x, state.scroll_y);
   bgUpdate();
@@ -375,7 +399,7 @@ int main(void) {
 
 
   fillDisplay(RGB15(0,0,0) | BIT(15), 0, state);
-  drawPage(state.currentPage, RGB15(31,31,31) | BIT(15));
+  drawPage(state.currentPage, RGB15(31,31,31) | BIT(15), state);
 
   touchPosition touch;
 
@@ -393,20 +417,22 @@ int main(void) {
 	// write the touchscreen coordinates in the touch variable
 	touchRead(&touch);
 	
-	Point touchPoint = Point(state.center_x-MY_BG_W/2+state.scroll_x+touch.px,
-				 state.center_y-MY_BG_H/2+state.scroll_y+touch.py);
+	Point screenPoint = Point(touch.px, touch.py);
+	Point imagePoint = state.convertScreenToImage(screenPoint);
 
 	if (currentSegment == NULL) {
 	  state.currentPage->segments.push_back(Segment());
 	  currentSegment = &(state.currentPage->segments[state.currentPage->segments.size()-1]);
-	  currentSegment->points.push_back(touchPoint);
+	  currentSegment->points.push_back(imagePoint);
 	  continue;
 	}
 
-	Point lastPoint = currentSegment->points[currentSegment->points.size()-1];
-	currentSegment->points.push_back(touchPoint);
+	Point lastImagePoint = currentSegment->points[currentSegment->points.size()-1];
+	currentSegment->points.push_back(imagePoint);
 
-	drawLine(lastPoint.x, lastPoint.y, touchPoint.x,touchPoint.y, RGB15(31,0,0) | BIT(15));
+	Point bufferPoint = state.convertScreenToBuffer(screenPoint);
+	Point lastBufferPoint = state.convertImageToBuffer(lastImagePoint);
+	drawLine(lastBufferPoint.x, lastBufferPoint.y,  bufferPoint.x, bufferPoint.y, RGB15(31,0,0) | BIT(15));
       }    
     else {
       currentSegment = NULL;
@@ -423,7 +449,7 @@ int main(void) {
       printf("Display page %d\n", page);
 
       fillDisplay(RGB15(0,0,0) | BIT(15), page, state);
-      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15));
+      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15), state);
     }
     if (keysDown() & KEY_Y) {
       int page = 0;
@@ -436,7 +462,7 @@ int main(void) {
       printf("Display page %d\n", page);
 
       fillDisplay(RGB15(0,0,0) | BIT(15), page, state);
-      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15));
+      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15), state);
     }
     if (keysDown() & KEY_A) {
       int page = 0;
@@ -448,25 +474,25 @@ int main(void) {
       printf("Display page %d\n", page);
 
       fillDisplay(RGB15(0,0,0) | BIT(15), page, state);
-      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15));
+      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15), state);
     }
     if (keysDown() & KEY_B) {
       saveFile(fileName, notebook);
     }
     if (keysDown() & KEY_LEFT) {
-      state.scroll_x+=20;
+      state.scroll_x-=50;
       updateCenter(state);
     }
     if (keysDown() & KEY_RIGHT) {
-      state.scroll_x-=20;
+      state.scroll_x+=50;
       updateCenter(state);
     }
     if (keysDown() & KEY_UP) {
-      state.scroll_y+=20;
+      state.scroll_y-=50;
       updateCenter(state);
     }
     if (keysDown() & KEY_DOWN) {
-      state.scroll_y-=20;
+      state.scroll_y+=50;
       updateCenter(state);
     }
 
