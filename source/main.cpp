@@ -8,12 +8,21 @@
 #define MY_BG_W (512)
 #define MY_BG_H (512)
 
+class AppState {
+public:
+  int lastPage;
+  sImage lastImage;
+  int center_x;
+  int center_y;
+  int scroll_x;
+  int scroll_y;
+  Page* currentPage;
+};
+
+
 void drawLine(int x1, int y1, int x2, int y2, unsigned short color);
 
-int lastPage = -1;
-sImage image;
-
-void fillDisplay(unsigned short color, unsigned int page, unsigned int center_x, unsigned int center_y) {
+void fillDisplay(unsigned short color, unsigned int page, AppState & state) {
   int offset = 0;
   // for (int y=0; y<MY_BG_H; y++) {
   //   offset = y * MY_BG_W;
@@ -23,11 +32,11 @@ void fillDisplay(unsigned short color, unsigned int page, unsigned int center_x,
   //   }
   // }
   
-  if (page != lastPage) {
-    if (lastPage != -1) {
-      free(image.palette);
-      // free(image.image.data8);
-      free(image.image.data16);
+  if (page != state.lastPage) {
+    if (state.lastPage != -1) {
+      free(state.lastImage.palette);
+      // free(state.lastImage.imasge.data8);
+      free(state.lastImage.image.data16);
     }
 
     //load our ball pcx file into an image
@@ -41,7 +50,6 @@ void fillDisplay(unsigned short color, unsigned int page, unsigned int center_x,
 
     // obtain file size:
     long lSize;
-    size_t result;
     fseek (pFile , 0 , SEEK_END);
     lSize = ftell (pFile);
     rewind (pFile);
@@ -57,24 +65,24 @@ void fillDisplay(unsigned short color, unsigned int page, unsigned int center_x,
     fclose (pFile);
 
 
-    res = loadPCX((u8*)pcx_image, &image); 
+    res = loadPCX((u8*)pcx_image, &state.lastImage); 
     free (pcx_image);
 
-    printf("Loaded Background of size %d x %d\n", image.width, image.height);
-    printf(" Bits per pixel %d\n", image.bpp);
+    printf("Loaded Background of size %d x %d\n", state.lastImage.width, state.lastImage.height);
+    printf(" Bits per pixel %d\n", state.lastImage.bpp);
     printf(" res %d\n", res);
 
     // image8to16(&image);
 
-    printf(" palette size %d\n", sizeof(image.palette));
+    printf(" palette size %d\n", sizeof(state.lastImage.palette));
 
     for (int i=0; i<256; i++) {
-      BG_PALETTE[i] = image.palette[i];
+      BG_PALETTE[i] = state.lastImage.palette[i];
     }
     BG_PALETTE[1] = RGB15(31,0,0) | BIT(15);
 
 
-    lastPage = page;
+    state.lastPage = page;
   }
 
 
@@ -83,22 +91,22 @@ void fillDisplay(unsigned short color, unsigned int page, unsigned int center_x,
 
   int imgO = 0;
   for (int y=0 ; y < MY_BG_H; y++) {
-    int yImage = (y+center_y-MY_BG_H/2);
+    int yImage = (y+state.center_y-MY_BG_H/2);
     offset = y * MY_BG_W / 2;
-    imgO = yImage * image.width/2;
+    imgO = yImage * state.lastImage.width/2;
     for (int x=0; x<MY_BG_W; x+=2) {
-      int xImage = (x+center_x-MY_BG_W/2);
+      int xImage = (x+state.center_x-MY_BG_W/2);
 
       int offset2 = offset + x/2;
       int imgO2 = imgO + xImage/2;
       //BG_GFX[offset] = RGB15(31,0,0) | BIT(15);
       // BG_GFX[offset] = image.image.data16[imgO];
-      if (yImage < 0 || yImage >= image.height)
+      if (yImage < 0 || yImage >= state.lastImage.height)
 	bgGetGfxPtr(3)[offset2] = 0;
-      else if (xImage < 0 || xImage >= image.width)
+      else if (xImage < 0 || xImage >= state.lastImage.width)
 	bgGetGfxPtr(3)[offset2] = 0;
       else
-	bgGetGfxPtr(3)[offset2] = image.image.data16[imgO2];
+	bgGetGfxPtr(3)[offset2] = state.lastImage.image.data16[imgO2];
       // bgGetGfxPtr(3)[offset2] = 0x0101;
     }
   }
@@ -282,23 +290,23 @@ int saveFile(const char * fileName, Notebook notebook) {
   return 0;
 }
 
-void updateCenter(int & center_x, int & center_y, int & scroll_x, int & scroll_y, Page* currentPage, unsigned int currentPageIdx) {
-  int x_remain = MY_BG_W-SCREEN_WIDTH-scroll_x;
-  int tmp_cx = center_x-MY_BG_W/2+scroll_x+SCREEN_WIDTH/2;
-  int y_remain = MY_BG_H-SCREEN_HEIGHT-scroll_y;
-  int tmp_cy = center_y-MY_BG_H/2+scroll_y+SCREEN_HEIGHT/2;
-  printf("Scroll X %d Remain %d Center %d\n", scroll_x, x_remain, tmp_cx);
-  printf("Scroll Y %d Remain %d Center %d\n", scroll_y, y_remain, tmp_cy);
-  if (x_remain < 0 || y_remain < 0 || scroll_x<0 || scroll_y<0) {
-    scroll_x = MY_BG_W/2-SCREEN_WIDTH/2;
-    scroll_y = MY_BG_H/2-SCREEN_HEIGHT/2;
-    center_x = tmp_cx;
-    center_y = tmp_cy;
+void updateCenter(AppState & state) {
+  int x_remain = MY_BG_W-SCREEN_WIDTH-state.scroll_x;
+  int tmp_cx = state.center_x-MY_BG_W/2+state.scroll_x+SCREEN_WIDTH/2;
+  int y_remain = MY_BG_H-SCREEN_HEIGHT-state.scroll_y;
+  int tmp_cy = state.center_y-MY_BG_H/2+state.scroll_y+SCREEN_HEIGHT/2;
+  printf("Scroll X %d Remain %d Center %d\n", state.scroll_x, x_remain, tmp_cx);
+  printf("Scroll Y %d Remain %d Center %d\n", state.scroll_y, y_remain, tmp_cy);
+  if (x_remain < 0 || y_remain < 0 || state.scroll_x<0 || state.scroll_y<0) {
+    state.scroll_x = MY_BG_W/2-SCREEN_WIDTH/2;
+    state.scroll_y = MY_BG_H/2-SCREEN_HEIGHT/2;
+    state.center_x = tmp_cx;
+    state.center_y = tmp_cy;
     bgHide(3);
-    fillDisplay(RGB15(0,0,0) | BIT(15), currentPageIdx, center_x, center_y);
-    drawPage(currentPage, RGB15(31,0,0) | BIT(15));
+    fillDisplay(RGB15(0,0,0) | BIT(15), state.lastPage, state);
+    drawPage(state.currentPage, RGB15(31,0,0) | BIT(15));
   }
-  bgSetScroll(3, scroll_x, scroll_y);
+  bgSetScroll(3, state.scroll_x, state.scroll_y);
   bgUpdate();
   bgShow(3);
 }
@@ -328,21 +336,20 @@ int main(void) {
   const char * fileName = "note.txt";
   Notebook notebook = loadFile(fileName);
 
-
-
-  unsigned int currentPageIdx = 0;
-  Page * currentPage = &(notebook.pages[currentPageIdx]);
+  AppState state;
+  state.lastPage = -1;
+  state.currentPage = &(notebook.pages[0]);
   Segment * currentSegment = NULL;
 
-  int scroll_x = 0;
-  int scroll_y = 0;
+  state.scroll_x = 0;
+  state.scroll_y = 0;
 
-  int center_x = MY_BG_W/2;
-  int center_y = MY_BG_H/2;
+  state.center_x = MY_BG_W/2;
+  state.center_y = MY_BG_H/2;
 
 
-  fillDisplay(RGB15(0,0,0) | BIT(15), currentPageIdx, center_x, center_y);
-  drawPage(currentPage, RGB15(31,31,31) | BIT(15));
+  fillDisplay(RGB15(0,0,0) | BIT(15), 0, state);
+  drawPage(state.currentPage, RGB15(31,31,31) | BIT(15));
 
   touchPosition touch;
 
@@ -360,12 +367,12 @@ int main(void) {
 	// write the touchscreen coordinates in the touch variable
 	touchRead(&touch);
 	
-	Point touchPoint = Point(center_x-MY_BG_W/2+scroll_x+touch.px,
-				 center_y-MY_BG_H/2+scroll_y+touch.py);
+	Point touchPoint = Point(state.center_x-MY_BG_W/2+state.scroll_x+touch.px,
+				 state.center_y-MY_BG_H/2+state.scroll_y+touch.py);
 
 	if (currentSegment == NULL) {
-	  currentPage->segments.push_back(Segment());
-	  currentSegment = &(currentPage->segments[currentPage->segments.size()-1]);
+	  state.currentPage->segments.push_back(Segment());
+	  currentSegment = &(state.currentPage->segments[state.currentPage->segments.size()-1]);
 	  currentSegment->points.push_back(touchPoint);
 	  continue;
 	}
@@ -379,61 +386,62 @@ int main(void) {
       currentSegment = NULL;
     }
     if (keysDown() & KEY_X) {
-      currentPageIdx+=1;
-      while (notebook.pages.size() < currentPageIdx+1) {
+      int page = state.lastPage+1;
+      while (notebook.pages.size() < page+1) {
 	notebook.pages.push_back(Page());
 	printf("New Page created\n");
       }
-      currentPage = &(notebook.pages[currentPageIdx]);
+      state.currentPage = &(notebook.pages[page]);
       currentSegment = NULL;
 
-      printf("Display page %d\n", currentPageIdx);
+      printf("Display page %d\n", page);
 
-      fillDisplay(RGB15(0,0,0) | BIT(15), currentPageIdx, center_x, center_y);
-      drawPage(currentPage, RGB15(31,0,0) | BIT(15));
+      fillDisplay(RGB15(0,0,0) | BIT(15), page, state);
+      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15));
     }
     if (keysDown() & KEY_Y) {
-      if (currentPageIdx > 0) {
-	currentPageIdx-=1;
+      int page = 0;
+      if (state.lastPage > 0) {
+	page = state.lastPage-1;
       }
-      currentPage = &(notebook.pages[currentPageIdx]);
+      state.currentPage = &(notebook.pages[page]);
       currentSegment = NULL;
 
-      printf("Display page %d\n", currentPageIdx);
+      printf("Display page %d\n", page);
 
-      fillDisplay(RGB15(0,0,0) | BIT(15), currentPageIdx, center_x, center_y);
-      drawPage(currentPage, RGB15(31,0,0) | BIT(15));
+      fillDisplay(RGB15(0,0,0) | BIT(15), page, state);
+      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15));
     }
     if (keysDown() & KEY_A) {
-      currentPageIdx=0;
+      int page = 0;
       notebook = loadFile(fileName);
 
-      currentPage = &(notebook.pages[currentPageIdx]);
+      state.currentPage = &(notebook.pages[page]);
       currentSegment = NULL;
 
-      printf("Display page %d\n", currentPageIdx);
+      printf("Display page %d\n", page);
 
-      fillDisplay(RGB15(0,0,0) | BIT(15), currentPageIdx, center_x, center_y);
-      drawPage(currentPage, RGB15(31,0,0) | BIT(15));
+      fillDisplay(RGB15(0,0,0) | BIT(15), page, state);
+      drawPage(state.currentPage, RGB15(31,0,0) | BIT(15));
     }
     if (keysDown() & KEY_B) {
       saveFile(fileName, notebook);
     }
     if (keysDown() & KEY_LEFT) {
-      scroll_x+=20;
-      updateCenter(center_x, center_y, scroll_x, scroll_y, currentPage, currentPageIdx);
+      state.scroll_x+=20;
+      updateCenter(state);
     }
     if (keysDown() & KEY_RIGHT) {
-      scroll_x-=20;
-      updateCenter(center_x, center_y, scroll_x, scroll_y, currentPage, currentPageIdx);
+      state.scroll_x-=20;
+      updateCenter(state);
     }
     if (keysDown() & KEY_UP) {
-      scroll_y+=20;
-      updateCenter(center_x, center_y, scroll_x, scroll_y, currentPage, currentPageIdx);
+      state.scroll_y+=20;
+      updateCenter(state);
     }
     if (keysDown() & KEY_DOWN) {
-      scroll_y-=20;
-      updateCenter(center_x, center_y, scroll_x, scroll_y, currentPage, currentPageIdx);
+      state.scroll_y-=20;
+      updateCenter(state);
     }
 
     swiWaitForVBlank();
