@@ -25,6 +25,7 @@ public:
   int scroll_x;
   int scroll_y;
   Page* currentPage;
+  Notebook notebook;
 
   std::string notebookName;
 
@@ -456,7 +457,13 @@ void updateCenter(AppState & state) {
       state.notebookName = notebooks[selected];
 
       fillDisplay(RGB15(0,0,0) | BIT(15), 0, state);
+
+      std::string fileName = state.notebookName + "/notes.txt";
+      state.notebook = loadFile(fileName.c_str());
+      state.currentPage = &(state.notebook.pages[0]);
+
       drawPage(state.currentPage, RGB15(31,31,31) | BIT(15), state);
+
       return;
     }
     if (keysDown() & KEY_B) {
@@ -505,10 +512,6 @@ int main(void) {
   AppState state;
   uiOpenNotebook(state);
 
-  const char * fileName = "note.txt";
-  Notebook notebook = loadFile(fileName);
-
-  state.currentPage = &(notebook.pages[0]);
 
   Segment * currentSegment = NULL;
 
@@ -551,11 +554,11 @@ int main(void) {
     }
     if (keysDown() & KEY_X) {
       int page = state.lastPage+1;
-      while (notebook.pages.size() < page+1) {
-	notebook.pages.push_back(Page());
+      while (state.notebook.pages.size() < page+1) {
+	state.notebook.pages.push_back(Page());
 	printf("New Page created\n");
       }
-      state.currentPage = &(notebook.pages[page]);
+      state.currentPage = &(state.notebook.pages[page]);
       currentSegment = NULL;
 
       printf("Display page %d\n", page);
@@ -568,7 +571,7 @@ int main(void) {
       if (state.lastPage > 0) {
 	page = state.lastPage-1;
       }
-      state.currentPage = &(notebook.pages[page]);
+      state.currentPage = &(state.notebook.pages[page]);
       currentSegment = NULL;
 
       printf("Display page %d\n", page);
@@ -578,9 +581,10 @@ int main(void) {
     }
     if (keysDown() & KEY_A) {
       int page = 0;
-      notebook = loadFile(fileName);
+      std::string fileName = state.notebookName + "/notes.txt";
+      state.notebook = loadFile(fileName.c_str());
 
-      state.currentPage = &(notebook.pages[page]);
+      state.currentPage = &(state.notebook.pages[page]);
       currentSegment = NULL;
 
       printf("Display page %d\n", page);
@@ -589,7 +593,8 @@ int main(void) {
       drawPage(state.currentPage, RGB15(31,0,0) | BIT(15), state);
     }
     if (keysDown() & KEY_B) {
-      saveFile(fileName, notebook);
+      std::string fileName = state.notebookName + "/notes.txt";
+      saveFile(fileName.c_str(), state.notebook);
     }
     if (keysDown() & KEY_LEFT) {
       state.scroll_x-=50;
@@ -609,8 +614,6 @@ int main(void) {
     }
     if (keysDown() & KEY_START) {
       uiOpenNotebook(state);
-      Notebook notebook = loadFile(fileName);
-      state.currentPage = &(notebook.pages[0]);
     }
 
     swiWaitForVBlank();
