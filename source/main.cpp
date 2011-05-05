@@ -12,11 +12,13 @@ class AppState {
 public:
   int lastPage;
   sImage lastImage;
+  bool lastImageFromPcx;
   int center_x;
   int center_y;
   int scroll_x;
   int scroll_y;
   Page* currentPage;
+  
 
   Point convertBufferToImage(Point src) {
     return Point(
@@ -53,6 +55,18 @@ public:
 
 void drawLine(int x1, int y1, int x2, int y2, unsigned short color);
 
+
+void fillEmptyPage(AppState & state) {
+  for (int y=0 ; y < MY_BG_H; y++) {
+    int offset = y * MY_BG_W / 2;
+    for (int x=0; x<MY_BG_W; x+=2) {
+      int offset2 = offset + x/2;
+      bgGetGfxPtr(3)[offset2] = 0;
+    }
+  }
+  state.lastImageFromPcx = false;
+}
+
 void fillDisplay(unsigned short color, unsigned int page, AppState & state) {
   int offset = 0;
   // for (int y=0; y<MY_BG_H; y++) {
@@ -64,20 +78,24 @@ void fillDisplay(unsigned short color, unsigned int page, AppState & state) {
   // }
   
   if (page != state.lastPage) {
-    if (state.lastPage != -1) {
+    if (state.lastPage != -1 && state.lastImageFromPcx) {
       free(state.lastImage.palette);
       // free(state.lastImage.imasge.data8);
       free(state.lastImage.image.data16);
     }
+    state.lastPage = page;
 
-    //load our ball pcx file into an image
     int res = 0;
  
     char fileName[1024];
     sprintf(fileName, "image%02d.pcx", page);
 
     FILE * pFile = fopen ( fileName , "rb" );
-    if (pFile==NULL) printf("File error\n");
+    if (pFile==NULL) {
+      printf("File File Not Found\n");
+      fillEmptyPage(state);
+      return;
+    }
 
     // obtain file size:
     long lSize;
@@ -86,13 +104,20 @@ void fillDisplay(unsigned short color, unsigned int page, AppState & state) {
     rewind (pFile);
 
     char * pcx_image = (char *)malloc (sizeof(char)*lSize);
-    if (pcx_image == NULL) printf ("Memory error\n");
+    if (pcx_image == NULL) {
+      printf ("Memory error\n");
+      fillEmptyPage(state);
+      return;
+    }
 
     // copy the file into the buffer:
     res = fread (pcx_image,1,lSize,pFile);
-    if (res != lSize) {printf("Reading error\n");}
+    if (res != lSize) {
+      printf("Reading image error\n");
+      fillEmptyPage(state);
+      return;
+    }
 
-    // terminate
     fclose (pFile);
 
 
@@ -111,9 +136,7 @@ void fillDisplay(unsigned short color, unsigned int page, AppState & state) {
       BG_PALETTE[i] = state.lastImage.palette[i];
     }
     BG_PALETTE[1] = RGB15(31,0,0) | BIT(15);
-
-
-    state.lastPage = page;
+    state.lastImageFromPcx = true;
   }
 
 
