@@ -177,9 +177,9 @@ void drawPage(Page * page, unsigned short color, AppState & state) {
       Point p1buff = state.convertImageToBuffer(p1img);
       Point p2buff = state.convertImageToBuffer(p2img);
 
-      printf("--------------\n");
-      printf("%d %d\n", p1buff.x, p1buff.y);
-      printf("%d %d\n", p2buff.x, p2buff.y);
+      // printf("--------------\n");
+      // printf("%d %d\n", p1buff.x, p1buff.y);
+      // printf("%d %d\n", p2buff.x, p2buff.y);
 
       drawLine(p1buff.x, p1buff.y, p2buff.x, p2buff.y, color);
     }
@@ -198,11 +198,15 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned short color)
     int offset = y1 * MY_BG_W + x1; 
     int i;
 
+    int dx = 1;
+    int dy = 1;
+
     //need to adjust if y1 > y2
     if (yDiff < 0)       
     {                  
        yDiff = -yDiff;   //absolute value
        yStep = -yStep;   //step up instead of down   
+       dy = -1;
     }
     
     //same for x
@@ -210,6 +214,7 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned short color)
     {           
        xDiff = -xDiff;            
        xStep = -xStep;            
+       dx = -1;
     }        
  
     //case for changes more in X than in Y	 
@@ -217,9 +222,9 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned short color)
     {                            
        for (i = 0; i < xDiff + 1; i++)
        {                           
-          // VRAM_A[offset] = color;  
-	 // BG_GFX[offset] = color; 
-	 if (offset >= 0 && offset < MY_BG_W*MY_BG_H) {
+	 if (x1 >= 0 && x1 < MY_BG_W && y1 >=0 && y1 < MY_BG_H) {
+	   // VRAM_A[offset] = color;  
+	   // BG_GFX[offset] = color; 
 	   int offset2 = offset/2;
 	   if (offset%2 == 0) {
 	     BG_GFX[offset2] = (BG_GFX[offset2] & 0xff00) | color;
@@ -233,10 +238,12 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned short color)
  
           errorTerm += yDiff;     
  
+	   x1+=dx;
           if (errorTerm > xDiff) 
           {  
              errorTerm -= xDiff;     
-             offset += yStep;        
+             offset += yStep;
+	     y1 += dy;
           }
        }
     }//end if xdiff > ydiff
@@ -247,25 +254,27 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned short color)
        {  
           // VRAM_A[offset] = color;  
 	 // BG_GFX[offset] = color; 
-	 if (offset >= 0 && offset < MY_BG_W*MY_BG_H) {
-	   int offset2 = offset/2;
-	   if (offset%2 == 0) {
-	     BG_GFX[offset2] = (BG_GFX[offset2] & 0xff00) | color;
+	 if (x1 >= 0 && x1 < MY_BG_W && y1 >=0 && y1 < MY_BG_H) {
+	     int offset2 = offset/2;
+	     if (offset%2 == 0) {
+	       BG_GFX[offset2] = (BG_GFX[offset2] & 0xff00) | color;
+	     }
+	     else {
+	       BG_GFX[offset2] = (BG_GFX[offset2] & 0x00ff) | (color<<8);
+	     }
 	   }
-	   else {
-	     BG_GFX[offset2] = (BG_GFX[offset2] & 0x00ff) | (color<<8);
-	   }
-	 }
  
           offset += yStep;           
  
           errorTerm += xDiff;    
- 
+
+	   y1+=dy;
+
           if (errorTerm > yDiff) 
           {     
              errorTerm -= yDiff;  
              offset += xStep;     
- 
+	     x1+=dx;
           }
        }
     }
