@@ -404,6 +404,8 @@ void updateCenter(AppState & state) {
  
  
  void uiOpenNotebook(AppState & state) {
+   lcdMainOnTop();
+
    DIR_ITER* dir = diropen (MAINPATH);
    if (dir == NULL) {
      printf("Marginalia data not found\n");
@@ -411,7 +413,7 @@ void updateCenter(AppState & state) {
    }
 
    printf("\x1b[2J");
-   printf("Select notebook to open:\n\n");
+   printf("Select notebook to open\n(Press Select to create NEW)");
 
    struct stat st;
    char filename[MAXPATHLEN];
@@ -445,6 +447,38 @@ void updateCenter(AppState & state) {
     }
     if (keysDown() & KEY_Y) {
     }
+    if (keysDown() & KEY_SELECT) {
+      printf ("\x1b[10;1H Insert new Directory Name");
+      char newName[256];
+
+      Keyboard *kbd =  keyboardDemoInit();
+
+      scanf("%s", newName);
+      printf ("\x1b[11;1H Creating directory %s", newName);
+
+      state.notebookName = newName;
+      if (mkdir(state.notebookName.c_str(), S_IRWXU|S_IRGRP|S_IXGRP) != 0) {
+	printf ("\x1b[12;1H directory creation failed");
+	continue;
+      }
+      
+      state.lastPage = -1;
+      state.scroll_x = 0;
+      state.scroll_y = 0;
+
+      state.center_x = MY_BG_W/2;
+      state.center_y = MY_BG_H/2;
+
+      fillDisplay(RGB15(0,0,0) | BIT(15), 0, state);
+
+      std::string fileName = state.notebookName + "/notes.txt";
+      state.notebook = loadFile(fileName.c_str());
+      state.currentPage = &(state.notebook.pages[0]);
+
+      drawPage(state.currentPage, RGB15(31,31,31) | BIT(15), state);
+      lcdMainOnBottom();
+      return;
+    }
     if (keysDown() & KEY_A) {
       printf ("\x1b[20;6H opening %s\n", notebooks[selected].c_str());
       state.lastPage = -1;
@@ -463,7 +497,7 @@ void updateCenter(AppState & state) {
       state.currentPage = &(state.notebook.pages[0]);
 
       drawPage(state.currentPage, RGB15(31,31,31) | BIT(15), state);
-
+      lcdMainOnBottom();
       return;
     }
     if (keysDown() & KEY_B) {
@@ -490,6 +524,7 @@ void updateCenter(AppState & state) {
 int main(void) {
 
   consoleDemoInit();
+
   //videoSetMode(MODE_FB0);
   videoSetMode( MODE_5_2D );
   vramSetBankA(VRAM_A_MAIN_BG);
@@ -512,17 +547,12 @@ int main(void) {
   AppState state;
   uiOpenNotebook(state);
 
+  // Keyboard *kbd =  keyboardDemoInit();
 
   Segment * currentSegment = NULL;
 
 
   touchPosition touch;
-
-
-  // Keyboard *kbd =  keyboardDemoInit();
-  // char myName[256];
-  // iprintf("What is your name?\n");
-  // scanf("%s", myName);
 
   while (1) {
     scanKeys();
