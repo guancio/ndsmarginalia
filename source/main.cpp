@@ -2,11 +2,18 @@
 #include <fat.h>
 #include <stdio.h>
 
+#include <sys/dir.h>
+#include <unistd.h>
+
+#include <string>
+
 #include "page.h"
 
 
 #define MY_BG_W (512)
 #define MY_BG_H (512)
+
+#define MAINPATH ("//")
 
 class AppState {
 public:
@@ -18,7 +25,8 @@ public:
   int scroll_x;
   int scroll_y;
   Page* currentPage;
-  
+
+  std::string notebookName;
 
   Point convertBufferToImage(Point src) {
     return Point(
@@ -88,7 +96,7 @@ void fillDisplay(unsigned short color, unsigned int page, AppState & state) {
     int res = 0;
  
     char fileName[1024];
-    sprintf(fileName, "/note1.mrg/image%02d.pcx", page);
+    sprintf(fileName, "%s/%s/image%02d.pcx", MAINPATH, state.notebookName.c_str(), page);
 
     FILE * pFile = fopen ( fileName , "rb" );
     if (pFile==NULL) {
@@ -392,6 +400,85 @@ void updateCenter(AppState & state) {
   bgUpdate();
   bgShow(3);
 }
+ 
+ 
+ void uiOpenNotebook(AppState & state) {
+   DIR_ITER* dir = diropen (MAINPATH);
+   if (dir == NULL) {
+     printf("Marginalia data not found\n");
+     return;
+   }
+
+   printf("\x1b[2J");
+   printf("Select notebook to open:\n\n");
+
+   struct stat st;
+   char filename[MAXPATHLEN];
+   int i=0;
+
+   std::vector<std::string> notebooks;
+
+   while (dirnext(dir, filename, &st) == 0) {
+     // st.st_mode & S_IFDIR indicates a directory
+     // if (!(st.st_mode & S_IFDIR))
+     //   continue;
+     // if (strcmp(filename, "..") == 0)
+     //   continue;
+     // if (strcmp(filename, ".") == 0)
+     //   continue;
+     printf ("\x1b[%d;3H%d)   %s\n", i+3, i, filename);
+     notebooks.push_back(filename);
+     i++;
+   }
+   dirclose (dir);
+   int selected = 0;
+   printf ("\x1b[%d;6H*", selected+3);
+   
+   while (1) {
+    scanKeys();
+    
+    if(keysHeld() & KEY_TOUCH)
+      {
+      }    
+    if (keysDown() & KEY_X) {
+    }
+    if (keysDown() & KEY_Y) {
+    }
+    if (keysDown() & KEY_A) {
+      printf ("\x1b[20;6H opening %s\n", notebooks[selected].c_str());
+      state.lastPage = -1;
+      state.scroll_x = 0;
+      state.scroll_y = 0;
+
+      state.center_x = MY_BG_W/2;
+      state.center_y = MY_BG_H/2;
+
+      state.notebookName = notebooks[selected];
+
+      fillDisplay(RGB15(0,0,0) | BIT(15), 0, state);
+      drawPage(state.currentPage, RGB15(31,31,31) | BIT(15), state);
+      return;
+    }
+    if (keysDown() & KEY_B) {
+    }
+    if (keysDown() & KEY_LEFT) {
+    }
+    if (keysDown() & KEY_RIGHT) {
+    }
+    if (keysDown() & KEY_UP) {
+      printf ("\x1b[%d;6H ", selected+3);
+      selected -= 1;
+      printf ("\x1b[%d;6H*", selected+3);
+    }
+    if (keysDown() & KEY_DOWN) {
+      printf ("\x1b[%d;6H ", selected+3);
+      selected += 1;
+      printf ("\x1b[%d;6H*", selected+3);
+    }
+
+    swiWaitForVBlank();
+  }
+ }
 
 int main(void) {
 
@@ -415,23 +502,16 @@ int main(void) {
   else
     printf("FAT initialization failed\n");
 
+  AppState state;
+  uiOpenNotebook(state);
+
   const char * fileName = "note.txt";
   Notebook notebook = loadFile(fileName);
 
-  AppState state;
-  state.lastPage = -1;
   state.currentPage = &(notebook.pages[0]);
+
   Segment * currentSegment = NULL;
 
-  state.scroll_x = 0;
-  state.scroll_y = 0;
-
-  state.center_x = MY_BG_W/2;
-  state.center_y = MY_BG_H/2;
-
-
-  fillDisplay(RGB15(0,0,0) | BIT(15), 0, state);
-  drawPage(state.currentPage, RGB15(31,31,31) | BIT(15), state);
 
   touchPosition touch;
 
@@ -526,6 +606,11 @@ int main(void) {
     if (keysDown() & KEY_DOWN) {
       state.scroll_y+=50;
       updateCenter(state);
+    }
+    if (keysDown() & KEY_START) {
+      uiOpenNotebook(state);
+      Notebook notebook = loadFile(fileName);
+      state.currentPage = &(notebook.pages[0]);
     }
 
     swiWaitForVBlank();
