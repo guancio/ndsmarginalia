@@ -88,11 +88,11 @@ void fillDisplay(unsigned short color, unsigned int page, AppState & state) {
     int res = 0;
  
     char fileName[1024];
-    sprintf(fileName, "image%02d.pcx", page);
+    sprintf(fileName, "/note1.mrg/image%02d.pcx", page);
 
     FILE * pFile = fopen ( fileName , "rb" );
     if (pFile==NULL) {
-      printf("File File Not Found\n");
+      printf("File %s Not Found\n", fileName);
       fillEmptyPage(state);
       return;
     }
@@ -309,14 +309,14 @@ Notebook loadFile(const char * fileName) {
     Page page = Page();
     fscanf(save, "%d", &segmentNumber);
     moveEndOfLine(save);
-    printf(" Page %d contains %d segments \n", iPage, segmentNumber);
+    // printf(" Page %d contains %d segments \n", iPage, segmentNumber);
     for (unsigned int iSegment=0; iSegment<segmentNumber; iSegment++) {
       unsigned int pointNumber;
       Segment segment = Segment();
 
       fscanf(save, "%d", &pointNumber);
       moveEndOfLine(save);
-      printf("  Segment %d contains %d points \n", iSegment, pointNumber);
+      // printf("  Segment %d contains %d points \n", iSegment, pointNumber);
 
       for (unsigned int iPoint=0; iPoint<pointNumber; iPoint++) {
 	unsigned int x,y;
@@ -371,10 +371,10 @@ void updateCenter(AppState & state) {
   Point topRight = state.convertBufferToScreen(Point(MY_BG_W,MY_BG_H));
 
   Point newCenter = state.convertScreenToImage(Point(SCREEN_WIDTH/2, SCREEN_HEIGHT/2));
-  printf("--------------\n");
-  printf("%d %d\n", bottomLeft.x, bottomLeft.y);
-  printf("%d %d\n", topRight.x, topRight.y);
-  printf("%d %d\n", newCenter.x, newCenter.y);
+  // printf("--------------\n");
+  // printf("%d %d\n", bottomLeft.x, bottomLeft.y);
+  // printf("%d %d\n", topRight.x, topRight.y);
+  // printf("%d %d\n", newCenter.x, newCenter.y);
 
   if (bottomLeft.x > 0 || bottomLeft.y > 0 || topRight.x < SCREEN_WIDTH || topRight.y < SCREEN_HEIGHT) {
     //Point newCenter = state.convertScreenToImage(Point(SCREEN_WIDTH/2, SCREEN_HEIGHT/2));
@@ -383,7 +383,7 @@ void updateCenter(AppState & state) {
       state.center_x = newCenter.x;
       state.center_y = newCenter.y;
 
-      printf("%d %d\n", state.center_x, state.center_y);
+      // printf("%d %d\n", state.center_x, state.center_y);
       bgHide(3);
       fillDisplay(RGB15(0,0,0) | BIT(15), state.lastPage, state);
       drawPage(state.currentPage, RGB15(31,0,0) | BIT(15), state);
